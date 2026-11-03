@@ -1,14 +1,20 @@
 # remarkable-live
 
 MCP-Server, über den Claude live sieht, was gerade auf dem reMarkable Paper Pro
-geöffnet ist – während du schreibst, ohne auf den Cloud-Sync zu warten.
+geöffnet ist – während du schreibst, ohne Cloud-Sync und ohne Desktop-App.
 
 ## Wie es funktioniert
 
-Das Tablet streamt über die offizielle **Bildschirm teilen**-Funktion in die
-reMarkable-Desktop-App (macOS). Der Server sucht das Fenster „Bildschirm teilen“ (sonst das vorderste Fenster der App),
-macht davon mit `screencapture` einen Screenshot (auch wenn es verdeckt ist),
-skaliert ihn auf max. 1600 px und gibt ihn als Bild an Claude zurück.
+`rmgrab` (Go, statisch für Linux/ARM64) läuft per SSH auf dem Tablet. Es liest
+den Qt-Bildpuffer der Oberfläche `xochitl` direkt aus `/proc/<pid>/mem`
+(1632×2160, BGRA, rechts 12 px Polsterung), schneidet ihn auf 1620×2160 zu und
+schreibt ein PNG nach stdout. Ein Abruf dauert per USB etwa 0,8 s.
+
+Der Puffer ist ein per mmap angelegter malloc-Chunk mit wechselnder Adresse.
+`rmgrab` sucht ihn in den anonymen Speicherbereichen über Chunk-Größe und
+deckenden Alpha-Kanal (unterscheidet ihn vom ähnlich großen Puffer des
+E-Ink-Treibers) und merkt sich die Adresse pro xochitl-Prozess in
+`/tmp/rmgrab.cache`.
 
 Tool: `remarkable_live_screen(wait_for_change_seconds=0)`
 
@@ -16,20 +22,22 @@ Tool: `remarkable_live_screen(wait_for_change_seconds=0)`
 - `> 0` – wartet bis zu N Sekunden, bis sich der Bildschirm seit dem letzten
   Abruf ändert (zum Mitverfolgen beim Schreiben).
 
-## Benutzung
+## Voraussetzungen
 
-1. reMarkable-Desktop-App öffnen (Tablet und Mac im selben WLAN oder per USB).
-2. Auf dem Tablet bzw. in der App **Bildschirm teilen** starten.
-3. Fenster nicht minimieren (verdecken ist ok).
-4. Claude fragen, z. B. „Schau auf mein reMarkable“.
+- Entwicklermodus am Tablet aktiv, SSH-Schlüssel installiert
+  (`ssh-copy-id -i ~/.ssh/id_rsa_remarkable.pub root@10.11.99.1`).
+- SSH-Alias `remarkable` in `~/.ssh/config` (Standard: USB, `10.11.99.1`).
+  Anderer Host per Umgebungsvariable `REMARKABLE_HOST`.
+- Für WLAN: auf dem Tablet einmal `rm-ssh-over-wlan on` und `REMARKABLE_HOST`
+  auf dessen IP setzen.
 
-Einmalig: Der Claude-App (bzw. dem Terminal, in dem Claude Code läuft) unter
-*Systemeinstellungen → Datenschutz & Sicherheit → Bildschirm- & Systemaudioaufnahme*
-erlauben.
+Fehlt `rmgrab` auf dem Tablet (z. B. nach Zurücksetzen), spielt der Server es
+automatisch per `scp` nach `/home/root/rmgrab` auf.
 
 ## Installation
 
 ```bash
+./build.sh
 claude mcp add --scope user remarkable-live -- /opt/homebrew/bin/uv run -q --script ~/Programmieren/remarkable-live/server.py
 ```
 
@@ -45,5 +53,6 @@ Für Claude Desktop in `~/Library/Application Support/Claude/claude_desktop_conf
 ## Tests
 
 ```bash
-uv run --with 'mcp<2' --with pyobjc-framework-Quartz --with pytest pytest -q
+(cd rmgrab && go test ./...)
+uv run --with 'mcp<2' --with pytest pytest -q
 ```

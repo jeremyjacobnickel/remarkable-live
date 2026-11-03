@@ -1,38 +1,28 @@
-from server import choose_window
+import subprocess
+
+import server
 
 
-def window(number, owner="reMarkable", width=1000, height=800, layer=0, onscreen=True, name=None):
-    return {
-        "kCGWindowNumber": number,
-        "kCGWindowName": name,
-        "kCGWindowOwnerName": owner,
-        "kCGWindowLayer": layer,
-        "kCGWindowIsOnscreen": onscreen,
-        "kCGWindowBounds": {"Width": width, "Height": height},
-    }
+def completed(returncode, stdout=b"", stderr=b""):
+    return subprocess.CompletedProcess([], returncode, stdout, stderr)
 
 
-def test_picks_frontmost_visible_app_window():
-    windows = [
-        window(1, owner="Finder", width=3000, height=2000),
-        window(2, width=900, height=1200),
-        window(3, width=1400, height=1000),
-    ]
-    assert choose_window(windows)["kCGWindowNumber"] == 2
+def test_deploys_grabber_when_missing_on_tablet(monkeypatch):
+    results = [completed(server.COMMAND_NOT_FOUND), completed(0, b"png")]
+    deployed = []
+    monkeypatch.setattr(server, "_run_grabber", lambda: results.pop(0))
+    monkeypatch.setattr(server, "_deploy_grabber", lambda: deployed.append(True))
+    monkeypatch.setattr(server.subprocess, "run", lambda *a, **k: completed(0))
+
+    assert server.grab_png() == b"png"
+    assert deployed == [True]
 
 
-def test_prefers_screen_share_window_behind_library():
-    windows = [
-        window(1, name="reMarkable", width=1600, height=1366),
-        window(2, name="Bildschirm teilen", width=1600, height=1252),
-    ]
-    assert choose_window(windows)["kCGWindowNumber"] == 2
-
-
-def test_ignores_menu_bars_offscreen_and_overlays():
-    windows = [
-        window(1, width=2560, height=30),
-        window(2, onscreen=None),
-        window(3, layer=25),
-    ]
-    assert choose_window(windows) is None
+def test_reports_ssh_failure(monkeypatch):
+    monkeypatch.setattr(server, "_run_grabber", lambda: completed(255, stderr=b"No route"))
+    try:
+        server.grab_png()
+    except RuntimeError as error:
+        assert "No route" in str(error)
+    else:
+        raise AssertionError("RuntimeError erwartet")
