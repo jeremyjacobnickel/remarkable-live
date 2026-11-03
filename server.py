@@ -22,6 +22,7 @@ import Quartz
 from mcp.server.fastmcp import FastMCP, Image
 
 APP_OWNER_NAME = "reMarkable"
+SCREEN_SHARE_TITLES = {"Bildschirm teilen", "Screen share", "Screen Share"}
 MIN_WINDOW_SIDE = 200
 MAX_IMAGE_SIDE = 1600
 POLL_INTERVAL_SECONDS = 1.0
@@ -31,21 +32,23 @@ _last_hash: str | None = None
 
 
 def choose_window(windows: list[dict]) -> dict | None:
-    """Wählt das vorderste sichtbare Fenster der reMarkable-App.
+    """Wählt das Screen-Share-Fenster, sonst das vorderste Fenster der App.
 
-    Quartz liefert Fenster von vorne nach hinten; ein gerade gestartetes
-    Screen-Share-Fenster liegt daher vor dem Bibliotheksfenster.
+    Quartz liefert Fenster von vorne nach hinten.
     """
-    for w in windows:
-        if (
-            w.get("kCGWindowOwnerName") == APP_OWNER_NAME
-            and w.get("kCGWindowLayer") == 0
-            and w.get("kCGWindowIsOnscreen")
-            and w["kCGWindowBounds"]["Width"] >= MIN_WINDOW_SIDE
-            and w["kCGWindowBounds"]["Height"] >= MIN_WINDOW_SIDE
-        ):
+    candidates = [
+        w
+        for w in windows
+        if w.get("kCGWindowOwnerName") == APP_OWNER_NAME
+        and w.get("kCGWindowLayer") == 0
+        and w.get("kCGWindowIsOnscreen")
+        and w["kCGWindowBounds"]["Width"] >= MIN_WINDOW_SIDE
+        and w["kCGWindowBounds"]["Height"] >= MIN_WINDOW_SIDE
+    ]
+    for w in candidates:
+        if w.get("kCGWindowName") in SCREEN_SHARE_TITLES:
             return w
-    return None
+    return candidates[0] if candidates else None
 
 
 def capture_screen() -> tuple[bytes, str]:

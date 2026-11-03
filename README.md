@@ -6,7 +6,7 @@ geöffnet ist – während du schreibst, ohne auf den Cloud-Sync zu warten.
 ## Wie es funktioniert
 
 Das Tablet streamt über die offizielle **Bildschirm teilen**-Funktion in die
-reMarkable-Desktop-App (macOS). Der Server sucht das vorderste Fenster der App,
+reMarkable-Desktop-App (macOS). Der Server sucht das Fenster „Bildschirm teilen“ (sonst das vorderste Fenster der App),
 macht davon mit `screencapture` einen Screenshot (auch wenn es verdeckt ist),
 skaliert ihn auf max. 1600 px und gibt ihn als Bild an Claude zurück.
 
