@@ -20,46 +20,68 @@ from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP, Image
 
-HOST = os.environ.get("REMARKABLE_HOST", "remarkable")
+# SSH-Ziele in Reihenfolge, z. B. USB-Alias und WLAN-Adresse.
+HOSTS = os.environ.get("REMARKABLE_HOSTS", "remarkable").split(",")
+SSH_KEY = Path(os.environ.get("REMARKABLE_SSH_KEY", "~/.ssh/id_rsa_remarkable")).expanduser()
 REMOTE_BINARY = "/home/root/rmgrab"
 LOCAL_BINARY = Path(__file__).parent / "rmgrab" / "rmgrab-linux-arm64"
-SSH_OPTIONS = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=5"]
+SSH_OPTIONS = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=3", "-i", str(SSH_KEY)]
+SSH_CONNECTION_ERROR = 255
 COMMAND_NOT_FOUND = 127
 MAX_IMAGE_SIDE = 1600
 POLL_INTERVAL_SECONDS = 1.0
 
 mcp = FastMCP("remarkable-live")
 _last_hash: str | None = None
+_working_host: str | None = None
 
 
-def _run_grabber() -> subprocess.CompletedProcess:
+def _run_grabber(host: str) -> subprocess.CompletedProcess:
     return subprocess.run(
-        ["ssh", *SSH_OPTIONS, HOST, REMOTE_BINARY], capture_output=True, timeout=30
+        ["ssh", *SSH_OPTIONS, host, REMOTE_BINARY], capture_output=True, timeout=30
     )
 
 
-def _deploy_grabber() -> None:
+def _deploy_grabber(host: str) -> None:
     if not LOCAL_BINARY.exists():
         raise RuntimeError(f"{LOCAL_BINARY} fehlt – zuerst ./build.sh ausführen.")
     subprocess.run(
-        ["scp", "-q", *SSH_OPTIONS, str(LOCAL_BINARY), f"{HOST}:{REMOTE_BINARY}"],
+        ["scp", "-q", *SSH_OPTIONS, str(LOCAL_BINARY), f"{host}:{REMOTE_BINARY}"],
         capture_output=True,
         check=True,
         timeout=60,
     )
 
 
-def grab_png() -> bytes:
-    """Aktueller Tablet-Bildschirm als PNG (lange Seite max. 1600 px)."""
-    result = _run_grabber()
+def _grab_from(host: str) -> subprocess.CompletedProcess:
+    result = _run_grabber(host)
     if result.returncode == COMMAND_NOT_FOUND:
-        _deploy_grabber()
-        result = _run_grabber()
+        _deploy_grabber(host)
+        result = _run_grabber(host)
+    return result
+
+
+def grab_png() -> bytes:
+    """Aktueller Tablet-Bildschirm als PNG (lange Seite max. 1600 px).
+
+    Probiert die Hosts der Reihe nach, den zuletzt erreichbaren zuerst.
+    """
+    global _working_host
+    hosts = sorted(HOSTS, key=lambda h: h != _working_host)
+    errors = []
+    for host in hosts:
+        result = _grab_from(host)
+        if result.returncode == 0:
+            _working_host = host
+            break
+        errors.append(f"{host}: {result.stderr.decode(errors='replace').strip()}")
+        if result.returncode != SSH_CONNECTION_ERROR:
+            break  # Tablet erreicht, aber rmgrab selbst ist gescheitert
     if result.returncode != 0:
         raise RuntimeError(
-            f"Bild vom reMarkable ({HOST}) konnte nicht geholt werden: "
-            f"{result.stderr.decode(errors='replace').strip()}. Ist das Tablet "
-            "per USB verbunden (bzw. SSH über WLAN aktiv) und entsperrt?"
+            "Bild vom reMarkable konnte nicht geholt werden ("
+            + "; ".join(errors)
+            + "). Ist das Tablet per USB oder WLAN erreichbar und entsperrt?"
         )
 
     with tempfile.TemporaryDirectory() as tmp:

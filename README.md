@@ -26,10 +26,12 @@ Tool: `remarkable_live_screen(wait_for_change_seconds=0)`
 
 - Entwicklermodus am Tablet aktiv, SSH-Schlüssel installiert
   (`ssh-copy-id -i ~/.ssh/id_rsa_remarkable.pub root@10.11.99.1`).
-- SSH-Alias `remarkable` in `~/.ssh/config` (Standard: USB, `10.11.99.1`).
-  Anderer Host per Umgebungsvariable `REMARKABLE_HOST`.
-- Für WLAN: auf dem Tablet einmal `rm-ssh-over-wlan on` und `REMARKABLE_HOST`
-  auf dessen IP setzen.
+- `REMARKABLE_HOSTS`: SSH-Ziele, durch Komma getrennt, z. B.
+  `remarkable,root@192.168.178.154` (USB-Alias aus `~/.ssh/config`, dann WLAN).
+  Der Server probiert sie der Reihe nach, den zuletzt erreichbaren zuerst.
+  Schlüssel: `REMARKABLE_SSH_KEY` (Standard `~/.ssh/id_rsa_remarkable`).
+- Für WLAN: auf dem Tablet einmal `rm-ssh-over-wlan on` (bleibt über Neustarts
+  aktiv) und im Router eine feste IP für das Tablet vergeben.
 
 Fehlt `rmgrab` auf dem Tablet (z. B. nach Zurücksetzen), spielt der Server es
 automatisch per `scp` nach `/home/root/rmgrab` auf.
@@ -38,7 +40,7 @@ automatisch per `scp` nach `/home/root/rmgrab` auf.
 
 ```bash
 ./build.sh
-claude mcp add --scope user remarkable-live -- /opt/homebrew/bin/uv run -q --script ~/Programmieren/remarkable-live/server.py
+claude mcp add --scope user remarkable-live -e REMARKABLE_HOSTS=remarkable,root@192.168.178.154 -- /opt/homebrew/bin/uv run -q --script ~/Programmieren/remarkable-live/server.py
 ```
 
 Für Claude Desktop in `~/Library/Application Support/Claude/claude_desktop_config.json`:
@@ -46,7 +48,8 @@ Für Claude Desktop in `~/Library/Application Support/Claude/claude_desktop_conf
 ```json
 "remarkable-live": {
   "command": "/opt/homebrew/bin/uv",
-  "args": ["run", "-q", "--script", "/Users/Jeremy/Programmieren/remarkable-live/server.py"]
+  "args": ["run", "-q", "--script", "/Users/Jeremy/Programmieren/remarkable-live/server.py"],
+  "env": {"REMARKABLE_HOSTS": "remarkable,root@192.168.178.154"}
 }
 ```
 
