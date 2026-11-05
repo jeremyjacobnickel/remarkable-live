@@ -1,0 +1,20 @@
+name: test
+on: [push, pull_request]
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: {go-version: stable, cache: false}
+      - uses: astral-sh/setup-uv@v5
+      - run: uv run build.py
+      - run: uv run --python 3.12 --with "mcp<2" --with pillow --with pytest pytest -q test_server.py
+      - run: go test ./...
+        working-directory: rmgrab
+      - name: Server startet (MCP-Handshake)
+        run: uv run --with "mcp<2" python ci_smoke.py

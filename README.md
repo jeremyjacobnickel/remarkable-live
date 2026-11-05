@@ -1,7 +1,11 @@
-# remarkable-live
+# Remarkable Live Control
 
 MCP-Server, über den Claude live sieht, was gerade auf dem reMarkable Paper Pro
 geöffnet ist – während du schreibst, ohne Cloud-Sync und ohne Desktop-App.
+
+Die Erweiterung **remarkable-control**, mit der Claude selbst auf dem Tablet
+schreibt, markiert, radiert und blättert, ist separat erhältlich und nicht Teil
+dieses Repos.
 
 ## Wie es funktioniert
 
@@ -25,7 +29,8 @@ Tool: `remarkable_live_screen(wait_for_change_seconds=0)`
 ## Voraussetzungen
 
 - Entwicklermodus am Tablet aktiv, SSH-Schlüssel installiert
-  (`ssh-copy-id -i ~/.ssh/id_rsa_remarkable.pub root@10.11.99.1`).
+  (`ssh-copy-id -i ~/.ssh/id_rsa_remarkable.pub root@10.11.99.1`; unter Windows
+  den Inhalt der `.pub`-Datei auf dem Tablet an `~/.ssh/authorized_keys` anhängen).
 - `REMARKABLE_HOSTS`: SSH-Ziele, durch Komma getrennt, z. B.
   `remarkable,root@192.168.1.50` (USB-Alias aus `~/.ssh/config`, dann WLAN).
   Der Server probiert sie der Reihe nach, den zuletzt erreichbaren zuerst.
@@ -34,17 +39,18 @@ Tool: `remarkable_live_screen(wait_for_change_seconds=0)`
   aktiv) und im Router eine feste IP für das Tablet vergeben.
 
 Fehlt `rmgrab` auf dem Tablet (z. B. nach Zurücksetzen), spielt der Server es
-automatisch per `scp` nach `/home/root/rmgrab` auf.
+automatisch per `ssh` nach `/home/root/rmgrab` auf.
 
 ## Installation
 
-Benötigt [Go](https://go.dev) (zum Bauen von `rmgrab`) und [uv](https://docs.astral.sh/uv/).
-Der Server nutzt `sips` zum Verkleinern und läuft daher derzeit nur unter macOS.
+Benötigt [Go](https://go.dev) (zum Bauen von `rmgrab`), [uv](https://docs.astral.sh/uv/)
+und einen OpenSSH-Client (`ssh`). Läuft unter macOS, Linux und Windows
+(Windows 10/11 bringen OpenSSH mit).
 
 ```bash
-git clone https://github.com/jeremyjacobnickel/remarkable-live.git
-cd remarkable-live
-./build.sh
+git clone https://github.com/jeremyjacobnickel/remarkable-live-control.git
+cd remarkable-live-control
+uv run build.py
 claude mcp add --scope user remarkable-live -e REMARKABLE_HOSTS=remarkable,root@192.168.1.50 -- uv run -q --script "$PWD/server.py"
 ```
 
@@ -54,7 +60,7 @@ Für Claude Desktop in `~/Library/Application Support/Claude/claude_desktop_conf
 ```json
 "remarkable-live": {
   "command": "/opt/homebrew/bin/uv",
-  "args": ["run", "-q", "--script", "/PFAD/ZU/remarkable-live/server.py"],
+  "args": ["run", "-q", "--script", "/PFAD/ZU/remarkable-live-control/server.py"],
   "env": {"REMARKABLE_HOSTS": "remarkable,root@192.168.1.50"}
 }
 ```
@@ -63,7 +69,7 @@ Für Claude Desktop in `~/Library/Application Support/Claude/claude_desktop_conf
 
 ```bash
 (cd rmgrab && go test ./...)
-uv run --with 'mcp<2' --with pytest pytest -q
+uv run --with 'mcp<2' --with pillow --with pytest pytest -q
 ```
 
 ## Lizenz

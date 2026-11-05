@@ -2,6 +2,7 @@
 # requires-python = ">=3.10"
 # dependencies = [
 #     "mcp>=1.2,<2",
+#     "pillow>=10",
 # ]
 # ///
 """MCP-Server: zeigt Claude live, was gerade auf dem reMarkable offen ist.
@@ -12,13 +13,14 @@ Weder Desktop-App noch Cloud-Sync sind beteiligt.
 """
 
 import hashlib
+import io
 import os
 import subprocess
-import tempfile
 import time
 from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP, Image
+from PIL import Image as PILImage
 
 # SSH-Ziele in Reihenfolge, z. B. USB-Alias und WLAN-Adresse.
 HOSTS = os.environ.get("REMARKABLE_HOSTS", "remarkable").split(",")
@@ -45,8 +47,11 @@ def _run_grabber(host: str) -> subprocess.CompletedProcess:
 def _deploy_grabber(host: str) -> None:
     if not LOCAL_BINARY.exists():
         raise RuntimeError(f"{LOCAL_BINARY} fehlt – zuerst ./build.sh ausführen.")
+    # Über ssh statt scp: scp deutet Windows-Pfade wie C:\... als Host.
     subprocess.run(
-        ["scp", "-q", *SSH_OPTIONS, str(LOCAL_BINARY), f"{host}:{REMOTE_BINARY}"],
+        ["ssh", *SSH_OPTIONS, host, f"cat > {REMOTE_BINARY}.part && chmod +x {REMOTE_BINARY}.part"
+         f" && mv {REMOTE_BINARY}.part {REMOTE_BINARY}"],
+        input=LOCAL_BINARY.read_bytes(),
         capture_output=True,
         check=True,
         timeout=60,
@@ -84,13 +89,16 @@ def grab_png() -> bytes:
             + "). Ist das Tablet per USB oder WLAN erreichbar und entsperrt?"
         )
 
-    with tempfile.TemporaryDirectory() as tmp:
-        path = Path(tmp) / "screen.png"
-        path.write_bytes(result.stdout)
-        subprocess.run(
-            ["sips", "-Z", str(MAX_IMAGE_SIDE), str(path)], capture_output=True, check=True
-        )
-        return path.read_bytes()
+    return shrink_png(result.stdout)
+
+
+def shrink_png(png: bytes, max_side: int = MAX_IMAGE_SIDE) -> bytes:
+    """PNG verkleinern, so dass die lange Seite höchstens max_side Pixel hat."""
+    image = PILImage.open(io.BytesIO(png))
+    image.thumbnail((max_side, max_side), PILImage.LANCZOS)
+    out = io.BytesIO()
+    image.save(out, format="PNG")
+    return out.getvalue()
 
 
 @mcp.tool()
