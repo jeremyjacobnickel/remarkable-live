@@ -27,7 +27,7 @@ Tool: `remarkable_live_screen(wait_for_change_seconds=0)`
 - Entwicklermodus am Tablet aktiv, SSH-Schlüssel installiert
   (`ssh-copy-id -i ~/.ssh/id_rsa_remarkable.pub root@10.11.99.1`).
 - `REMARKABLE_HOSTS`: SSH-Ziele, durch Komma getrennt, z. B.
-  `remarkable,root@192.168.178.154` (USB-Alias aus `~/.ssh/config`, dann WLAN).
+  `remarkable,root@192.168.1.50` (USB-Alias aus `~/.ssh/config`, dann WLAN).
   Der Server probiert sie der Reihe nach, den zuletzt erreichbaren zuerst.
   Schlüssel: `REMARKABLE_SSH_KEY` (Standard `~/.ssh/id_rsa_remarkable`).
 - Für WLAN: auf dem Tablet einmal `rm-ssh-over-wlan on` (bleibt über Neustarts
@@ -38,18 +38,24 @@ automatisch per `scp` nach `/home/root/rmgrab` auf.
 
 ## Installation
 
+Benötigt [Go](https://go.dev) (zum Bauen von `rmgrab`) und [uv](https://docs.astral.sh/uv/).
+Der Server nutzt `sips` zum Verkleinern und läuft daher derzeit nur unter macOS.
+
 ```bash
+git clone https://github.com/jeremyjacobnickel/remarkable-live.git
+cd remarkable-live
 ./build.sh
-claude mcp add --scope user remarkable-live -e REMARKABLE_HOSTS=remarkable,root@192.168.178.154 -- /opt/homebrew/bin/uv run -q --script ~/Programmieren/remarkable-live/server.py
+claude mcp add --scope user remarkable-live -e REMARKABLE_HOSTS=remarkable,root@192.168.1.50 -- uv run -q --script "$PWD/server.py"
 ```
 
-Für Claude Desktop in `~/Library/Application Support/Claude/claude_desktop_config.json`:
+Für Claude Desktop in `~/Library/Application Support/Claude/claude_desktop_config.json`
+(Pfade anpassen; `which uv` liefert den uv-Pfad):
 
 ```json
 "remarkable-live": {
   "command": "/opt/homebrew/bin/uv",
-  "args": ["run", "-q", "--script", "/Users/Jeremy/Programmieren/remarkable-live/server.py"],
-  "env": {"REMARKABLE_HOSTS": "remarkable,root@192.168.178.154"}
+  "args": ["run", "-q", "--script", "/PFAD/ZU/remarkable-live/server.py"],
+  "env": {"REMARKABLE_HOSTS": "remarkable,root@192.168.1.50"}
 }
 ```
 
@@ -59,3 +65,7 @@ Für Claude Desktop in `~/Library/Application Support/Claude/claude_desktop_conf
 (cd rmgrab && go test ./...)
 uv run --with 'mcp<2' --with pytest pytest -q
 ```
+
+## Lizenz
+
+MIT, siehe [LICENSE](LICENSE).
