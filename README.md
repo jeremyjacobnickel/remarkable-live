@@ -1,11 +1,13 @@
-# Remarkable Live Control
+# rm live
 
 MCP-Server, über den Claude live sieht, was gerade auf dem reMarkable Paper Pro
 geöffnet ist – während du schreibst, ohne Cloud-Sync und ohne Desktop-App.
 
-Die Erweiterung **remarkable-control**, mit der Claude selbst auf dem Tablet
-schreibt, markiert, radiert und blättert, ist separat erhältlich und nicht Teil
-dieses Repos.
+rm live ist der kostenlose Teil von **Remarkable Live Control**:
+
+- **rm live** (dieses Repo): Bildschirm anzeigen.
+- **rm control** (separat erhältlich): Claude schreibt, markiert, radiert und
+  blättert selbst auf dem Tablet.
 
 ## Wie es funktioniert
 
@@ -48,8 +50,8 @@ und einen OpenSSH-Client (`ssh`). Läuft unter macOS, Linux und Windows
 (Windows 10/11 bringen OpenSSH mit).
 
 ```bash
-git clone https://github.com/jeremyjacobnickel/remarkable-live-control.git
-cd remarkable-live-control
+git clone https://github.com/jeremyjacobnickel/remarkable-live.git
+cd remarkable-live
 uv run build.py
 claude mcp add --scope user remarkable-live -e REMARKABLE_HOSTS=remarkable,root@192.168.1.50 -- uv run -q --script "$PWD/server.py"
 ```
@@ -60,7 +62,7 @@ Für Claude Desktop in `~/Library/Application Support/Claude/claude_desktop_conf
 ```json
 "remarkable-live": {
   "command": "/opt/homebrew/bin/uv",
-  "args": ["run", "-q", "--script", "/PFAD/ZU/remarkable-live-control/server.py"],
+  "args": ["run", "-q", "--script", "/PFAD/ZU/remarkable-live/server.py"],
   "env": {"REMARKABLE_HOSTS": "remarkable,root@192.168.1.50"}
 }
 ```
